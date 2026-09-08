@@ -1,9 +1,10 @@
 {
+    "$schema": "https://openapi.vercel.sh/vercel.json",
     "cleanUrls":  true,
     "trailingSlash":  false,
-    "outputDirectory":  "public",
-    "buildCommand":  "npm run build:real",
-    "installCommand":  null,
+    "outputDirectory":  ".",
+    "buildCommand":  null,
+    "installCommand":  "",
     "framework":  null,
     "headers":  [
                     {
