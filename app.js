@@ -1,6 +1,15 @@
 ﻿console.log('BIFOR2026 app loaded - Desktop/BIFOR2026');
 /* BIFOR 2026 App */
 const STORAGE_KEY = 'bifor_data_v2';
+const defaultEventContent = {
+  history: 'BIFOR 2025 nació como un espacio de encuentro para conversar sobre innovación, creatividad y transformación empresarial en Manizales. Durante esa edición, emprendedores, organizaciones, estudiantes y aliados compartieron ideas, retos y soluciones que demostraron que innovar también significa construir en comunidad.\n\nLa experiencia de 2025 dejó una red de personas comprometidas con convertir el conocimiento en acción. BIFOR 2026 retoma ese impulso con nuevos retos, más participación y una agenda diseñada para seguir transformando el territorio.',
+  agenda: [
+    { id:'a1', date:'2026-11-05', time:'08:00', title:'Registro y acreditación', detail:'Entrega de carnets y bienvenida a participantes.' },
+    { id:'a2', date:'2026-11-05', time:'09:00', title:'Apertura BIFOR 2026', detail:'Inicio oficial de la jornada y presentación de aliados.' },
+    { id:'a3', date:'2026-11-05', time:'10:00', title:'Conversatorio: Innovación que transforma', detail:'Ideas y casos para impulsar la transformación.' },
+    { id:'a4', date:'2026-11-05', time:'14:00', title:'Minijuegos y networking', detail:'Reto interactivo para participantes.' }
+  ]
+};
 
 let state = {
   currentUser: null,
@@ -15,7 +24,8 @@ let state = {
   snake: null,
   editingQuizId: null,
   quizPlays: {},
-  live: { onlineHistory: [], respondingHistory: [], feed: [], lastResponsesPerMin: 0 }
+  live: { onlineHistory: [], respondingHistory: [], feed: [], lastResponsesPerMin: 0 },
+  eventContent: JSON.parse(JSON.stringify(defaultEventContent))
 };
 const CONFIG_KEY='bifor_config_v1';
 let config={ soundEnabled:true, musicEnabled:true, sfxEnabled:true, volume:40, fontScale:100, animations:true, theme:'dark' };
@@ -106,6 +116,7 @@ function load(){
       state.currentUser = p.currentUser || null;
       state.quizPlays = p.quizPlays || {};
       state.live = p.live || { onlineHistory: [], respondingHistory: [], feed: [], lastResponsesPerMin: 0 };
+      state.eventContent = p.eventContent || JSON.parse(JSON.stringify(defaultEventContent));
       if(!state.live.onlineHistory) state.live.onlineHistory=[];
       if(!state.live.respondingHistory) state.live.respondingHistory=[];
       if(!state.live.feed) state.live.feed=[];
@@ -117,6 +128,9 @@ function load(){
   if(!state.users.length) state.users = defaultUsers;
   if(!state.quizPlays) state.quizPlays={};
   if(!state.live) state.live={ onlineHistory:[], respondingHistory:[], feed:[], lastResponsesPerMin:0 };
+  if(!state.eventContent) state.eventContent=JSON.parse(JSON.stringify(defaultEventContent));
+  if(!Array.isArray(state.eventContent.agenda)) state.eventContent.agenda=JSON.parse(JSON.stringify(defaultEventContent.agenda));
+  if(!state.eventContent.history) state.eventContent.history=defaultEventContent.history;
   // asegurar presencia para cada correo
   state.users.forEach((u,i)=>{
     ensureUserPresence(u);
@@ -155,6 +169,7 @@ function initDefaults(){
   });
   state.quizzes = JSON.parse(JSON.stringify(defaultQuizzes));
   state.quizPlays={}; state.live={ onlineHistory:[], respondingHistory:[], feed:[], lastResponsesPerMin:0 };
+  state.eventContent=JSON.parse(JSON.stringify(defaultEventContent));
   const realOnline=state.users.filter(isUserOnline).length;
   const realPlaying=state.users.filter(isUserPlaying).length;
   for(let i=0;i<10;i++){ state.live.onlineHistory.push(realOnline); state.live.respondingHistory.push(realPlaying); }
@@ -169,7 +184,7 @@ function setPlaying(email, playing, quizTitle){
   if(u){ u.isPlaying=playing; u.isPlayingQuiz= playing? (quizTitle||'Quiz') : null; u.lastActive=Date.now(); u.isOnline=true; save(); if(state.currentUser && state.currentUser.email===email){ state.currentUser.isPlaying=playing; state.currentUser.isPlayingQuiz=u.isPlayingQuiz; state.currentUser.lastActive=u.lastActive; } }
 }
 function save(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({users:state.users, quizzes:state.quizzes, currentUser:state.currentUser, quizPlays:state.quizPlays, live:state.live}));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({users:state.users, quizzes:state.quizzes, currentUser:state.currentUser, quizPlays:state.quizPlays, live:state.live, eventContent:state.eventContent}));
 }
 function pushFeed(text, type='info'){
   const time = new Date().toLocaleTimeString('es-CO',{hour:'2-digit', minute:'2-digit', second:'2-digit'});
@@ -370,6 +385,8 @@ function showView(name){
   if(name==='juegos') renderJuegos();
   if(name==='ranking') renderRanking();
   if(name==='carnet') renderCarnet();
+  if(name==='participantes') renderParticipantes();
+  if(name==='agenda') renderAgenda();
   if(name==='admin') renderAdmin();
   if(name==='estadisticas') renderEstadisticas();
   if(name==='config') renderConfigSession();
@@ -863,6 +880,78 @@ document.getElementById('qrCanvas')?.addEventListener('click', ()=>{
   const data=document.getElementById('qrCanvas')?.dataset.qrData;
   if(data) alert('QR BIFOR 2026 escaneable:\n\n'+data+'\n\nEste codigo es tu carnet digital personalizado.');
 });
+
+// Participantes e historia
+function isAdmin(){ return state.currentUser?.cargo==='Administrador'; }
+function escapeHTML(value=''){
+  return String(value).replace(/[&<>'"]/g, char=>({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[char]));
+}
+function renderParticipantes(){
+  const list=document.getElementById('participantesLista');
+  const count=document.getElementById('participantsCount');
+  const history=document.getElementById('historiaContent');
+  if(!list || !history) return;
+  const users=[...state.users].sort((a,b)=>a.nick.localeCompare(b.nick,'es'));
+  if(count) count.textContent=users.length;
+  list.innerHTML=users.map(user=>`
+    <article class="participant-card">
+      <div class="participant-avatar">${escapeHTML(user.nick.charAt(0).toUpperCase())}</div>
+      <div class="participant-info"><h3>${escapeHTML(user.nick)}</h3><p>${escapeHTML(user.cargo)}</p><small>${escapeHTML(user.empresa||'Participante BIFOR')}</small></div>
+      <span class="participant-status ${isUserOnline(user)?'online':'offline'}">${isUserOnline(user)?'En línea':'Participante'}</span>
+    </article>`).join('') || '<p class="empty-state">Aún no hay participantes registrados.</p>';
+  history.textContent=state.eventContent.history;
+  const editButton=document.getElementById('editHistoryBtn');
+  if(editButton) editButton.classList.toggle('hidden',!isAdmin());
+  document.getElementById('historyForm')?.classList.add('hidden');
+}
+document.getElementById('editHistoryBtn')?.addEventListener('click',()=>{
+  if(!isAdmin()) return;
+  document.getElementById('historyText').value=state.eventContent.history;
+  document.getElementById('historiaContent').classList.add('hidden');
+  document.getElementById('historyForm').classList.remove('hidden');
+});
+document.getElementById('cancelHistoryEdit')?.addEventListener('click',()=>renderParticipantes());
+document.getElementById('historyForm')?.addEventListener('submit', event=>{
+  event.preventDefault();
+  if(!isAdmin()) return;
+  const text=document.getElementById('historyText').value.trim();
+  if(!text) return alert('Escribe la historia antes de guardar.');
+  state.eventContent.history=text;
+  save(); pushFeed('La historia de BIFOR 2025 fue actualizada', 'admin');
+  renderParticipantes();
+});
+
+// Agenda editable por administradores
+function renderAgenda(){
+  const list=document.getElementById('agendaList'), admin=document.getElementById('agendaAdmin');
+  if(!list || !admin) return;
+  const entries=[...state.eventContent.agenda].sort((a,b)=>`${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+  const byDate=entries.reduce((groups,item)=>{ (groups[item.date]??=[]).push(item); return groups; },{});
+  const dateLabel=date=>new Intl.DateTimeFormat('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(`${date}T12:00:00`));
+  list.innerHTML=Object.entries(byDate).map(([date,items])=>`
+    <section class="agenda-day"><h3>${escapeHTML(dateLabel(date))}</h3>
+      ${items.map(item=>`<article class="agenda-item"><time>${escapeHTML(item.time)}</time><div><h4>${escapeHTML(item.title)}</h4><p>${escapeHTML(item.detail||'')}</p></div>${isAdmin()?`<button class="btn-icon danger" onclick="deleteAgendaEntry('${item.id}')" aria-label="Eliminar ${escapeHTML(item.title)}">✕</button>`:''}</article>`).join('')}
+    </section>`).join('') || '<div class="card empty-state">No hay actividades programadas todavía.</div>';
+  if(!isAdmin()) { admin.classList.add('hidden'); admin.innerHTML=''; return; }
+  admin.classList.remove('hidden');
+  admin.innerHTML=`<h3>Editar agenda</h3><p class="card-sub">Añade una actividad a la programación oficial.</p>
+    <form id="agendaForm" class="agenda-form"><div class="agenda-form-grid"><div class="input-group"><label>Fecha</label><input id="agendaDate" type="date" value="2026-11-05" required></div><div class="input-group"><label>Hora</label><input id="agendaTime" type="time" value="09:00" required></div><div class="input-group agenda-title"><label>Actividad</label><input id="agendaTitle" type="text" maxlength="90" placeholder="Ej: Conferencia principal" required></div><div class="input-group agenda-title"><label>Detalle</label><input id="agendaDetail" type="text" maxlength="180" placeholder="Descripción breve"></div></div><button class="btn-primary" type="submit">+ Agregar a la agenda</button></form>`;
+  document.getElementById('agendaForm').addEventListener('submit', event=>{
+    event.preventDefault();
+    const date=document.getElementById('agendaDate').value, time=document.getElementById('agendaTime').value;
+    const title=document.getElementById('agendaTitle').value.trim(), detail=document.getElementById('agendaDetail').value.trim();
+    if(!date || !time || !title) return;
+    state.eventContent.agenda.push({id:'agenda-'+Date.now().toString(36),date,time,title,detail});
+    save(); pushFeed(`Agenda actualizada: ${title}`, 'admin'); renderAgenda();
+  });
+}
+window.deleteAgendaEntry=id=>{
+  if(!isAdmin()) return;
+  const item=state.eventContent.agenda.find(entry=>entry.id===id);
+  if(!item || !confirm(`¿Eliminar "${item.title}" de la agenda?`)) return;
+  state.eventContent.agenda=state.eventContent.agenda.filter(entry=>entry.id!==id);
+  save(); pushFeed(`Actividad eliminada: ${item.title}`, 'admin'); renderAgenda();
+};
 
 // Ranking LIVE - con secciones reales
 function renderRanking(){
