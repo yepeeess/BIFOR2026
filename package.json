@@ -1,0 +1,11 @@
+{
+  "name": "bifor2026",
+  "version": "4.0.0",
+  "private": true,
+  "description": "BIFOR 2026 - Innovacion que Transforma",
+  "scripts": {
+    "build": "node build.js",
+    "build:real": "node build.js",
+    "dev": "npx serve ."
+  }
+}

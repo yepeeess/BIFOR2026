@@ -9,13 +9,13 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/assets/bifor-color.png",
+      "src": "/bifor-color.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/assets/bifor-blanco.png",
+      "src": "/bifor-blanco.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
